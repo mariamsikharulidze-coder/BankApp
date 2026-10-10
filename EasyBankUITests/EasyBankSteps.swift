@@ -11,16 +11,19 @@ final class EasyBankSteps {
         self.page = EasyBankPage(app: app)
     }
 
+   
 
     private func tap(_ element: XCUIElement) {
-        XCTAssertTrue(
-            element.waitForExistence(timeout: 10),
-            "Element was not found"
-        )
-        XCTAssertTrue(
-            element.isHittable,
-            "Element is not hittable"
-        )
+        guard element.waitForExistence(timeout: 15) else {
+            XCTFail("Element was not found: \(element)")
+            return
+        }
+
+        guard element.isHittable else {
+            XCTFail("Element is not hittable: \(element)")
+            return
+        }
+
         element.tap()
     }
 
@@ -28,7 +31,12 @@ final class EasyBankSteps {
         _ text: String,
         into element: XCUIElement
     ) {
-        tap(element)
+        guard element.waitForExistence(timeout: 15) else {
+            XCTFail("Text field was not found")
+            return
+        }
+
+        element.tap()
 
         if let currentValue = element.value as? String,
            !currentValue.isEmpty,
@@ -38,6 +46,7 @@ final class EasyBankSteps {
                 repeating: XCUIKeyboardKey.delete.rawValue,
                 count: currentValue.count
             )
+
             element.typeText(deleteKeys)
         }
 
@@ -47,9 +56,51 @@ final class EasyBankSteps {
     private func dismissStrongPasswordPromptIfNeeded() {
         let closeButton = page.closePasswordPromptButton
 
-        if closeButton.exists && closeButton.isHittable {
+        if closeButton.waitForExistence(timeout: 2),
+           closeButton.isHittable {
             closeButton.tap()
         }
+    }
+
+    private func enterRegistrationSecureText(
+        _ password: String,
+        into field: XCUIElement
+    ) {
+        guard field.waitForExistence(timeout: 15) else {
+            XCTFail("Registration password field was not found")
+            return
+        }
+
+        field.tap()
+        dismissStrongPasswordPromptIfNeeded()
+
+        guard field.isHittable else {
+            XCTFail("Registration password field is not hittable")
+            return
+        }
+
+        
+        if let currentValue = field.value as? String,
+           !currentValue.isEmpty,
+           currentValue != field.placeholderValue {
+
+            let deleteKeys = String(
+                repeating: XCUIKeyboardKey.delete.rawValue,
+                count: currentValue.count
+            )
+
+            field.typeText(deleteKeys)
+        }
+
+        
+        for character in password {
+            field.typeText(String(character))
+        }
+
+        XCTAssertTrue(
+            field.exists,
+            "Password field disappeared after typing"
+        )
     }
 
     
@@ -62,7 +113,7 @@ final class EasyBankSteps {
         tap(page.onboardingRegisterButton)
     }
 
-    
+   
 
     func enterLoginEmail(_ email: String) {
         enterText(email, into: page.loginEmailField)
@@ -85,10 +136,10 @@ final class EasyBankSteps {
     func assertLoginErrorContains(_ expected: String) {
         let error = page.loginErrorMessage
 
-        XCTAssertTrue(
-            error.waitForExistence(timeout: 15),
-            "Login error was not displayed"
-        )
+        guard error.waitForExistence(timeout: 15) else {
+            XCTFail("Login error was not displayed")
+            return
+        }
 
         XCTAssertTrue(
             error.label.localizedCaseInsensitiveContains(expected),
@@ -96,28 +147,24 @@ final class EasyBankSteps {
         )
     }
 
-
+    //   Registration
 
     func enterRegistrationEmail(_ email: String) {
         enterText(email, into: page.registrationEmailField)
     }
 
     func enterRegistrationPassword(_ password: String) {
-        tap(page.registrationPasswordField)
-        dismissStrongPasswordPromptIfNeeded()
-
-        if page.registrationPasswordField.isHittable {
-            page.registrationPasswordField.typeText(password)
-        }
+        enterRegistrationSecureText(
+            password,
+            into: page.registrationPasswordField
+        )
     }
 
     func enterRepeatPassword(_ password: String) {
-        tap(page.registrationRepeatPasswordField)
-        dismissStrongPasswordPromptIfNeeded()
-
-        if page.registrationRepeatPasswordField.isHittable {
-            page.registrationRepeatPasswordField.typeText(password)
-        }
+        enterRegistrationSecureText(
+            password,
+            into: page.registrationRepeatPasswordField
+        )
     }
 
     func submitRegistration() {
@@ -128,33 +175,49 @@ final class EasyBankSteps {
         enterRegistrationEmail(email)
         enterRegistrationPassword(password)
         enterRepeatPassword(password)
+
         submitRegistration()
+
+        if !page.sendMoneyButton.waitForExistence(timeout: 20) {
+            let registrationError = page.registrationErrorMessage
+
+            if registrationError.exists {
+                XCTFail(
+                    "Registration failed: \(registrationError.label)"
+                )
+            } else {
+                XCTFail(
+                    "Registration did not navigate to Home. UI: \(app.debugDescription)"
+                )
+            }
+        }
     }
 
+    //  Home
 
+    func assertHomeDisplayed() {
+        let sendMoney = page.sendMoneyButton
+        let homeTab = page.homeTab
 
-  func assertHomeDisplayed() {
-    let sendMoney = page.sendMoneyButton
-    let homeTab = page.homeTab
+        if !sendMoney.waitForExistence(timeout: 20) {
+            _ = homeTab.waitForExistence(timeout: 5)
+        }
 
-    if !sendMoney.waitForExistence(timeout: 20) {
-        _ = homeTab.waitForExistence(timeout: 5)
+        XCTAssertTrue(
+            sendMoney.exists || homeTab.exists,
+            "Home screen was not displayed. UI: \(app.debugDescription)"
+        )
     }
 
-    XCTAssertTrue(
-        sendMoney.exists || homeTab.exists,
-        "Home screen was not displayed. UI: \(app.debugDescription)"
-    )
-}
-
+    // Logout
 
     func logout() {
         tap(page.logoutButton)
 
-        XCTAssertTrue(
-            page.logoutAlert.waitForExistence(timeout: 10),
-            "Logout confirmation was not displayed"
-        )
+        guard page.logoutAlert.waitForExistence(timeout: 10) else {
+            XCTFail("Logout confirmation was not displayed")
+            return
+        }
 
         tap(page.confirmLogoutButton)
     }
