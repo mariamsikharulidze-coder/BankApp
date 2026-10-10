@@ -11,7 +11,7 @@ final class EasyBankSteps {
         self.page = EasyBankPage(app: app)
     }
 
-   
+    // MARK: - Common Actions
 
     private func tap(_ element: XCUIElement) {
         guard element.waitForExistence(timeout: 15) else {
@@ -53,6 +53,8 @@ final class EasyBankSteps {
         element.typeText(text)
     }
 
+    // MARK: - Strong Password Prompt
+
     private func dismissStrongPasswordPromptIfNeeded() {
         let closeButton = page.closePasswordPromptButton
 
@@ -61,6 +63,8 @@ final class EasyBankSteps {
             closeButton.tap()
         }
     }
+
+    // MARK: - Registration Password Handling
 
     private func enterRegistrationSecureText(
         _ password: String,
@@ -71,15 +75,25 @@ final class EasyBankSteps {
             return
         }
 
-        field.tap()
-        dismissStrongPasswordPromptIfNeeded()
-
         guard field.isHittable else {
             XCTFail("Registration password field is not hittable")
             return
         }
 
-        
+        field.tap()
+
+        dismissStrongPasswordPromptIfNeeded()
+
+        guard field.waitForExistence(timeout: 10),
+              field.isHittable else {
+            XCTFail("Password field is not accessible")
+            return
+        }
+
+        // Restore focus after dismissing the iOS prompt
+        field.tap()
+
+        // Clear existing text if needed
         if let currentValue = field.value as? String,
            !currentValue.isEmpty,
            currentValue != field.placeholderValue {
@@ -92,18 +106,25 @@ final class EasyBankSteps {
             field.typeText(deleteKeys)
         }
 
-        
+        // Type password character by character
         for character in password {
             field.typeText(String(character))
         }
 
-        XCTAssertTrue(
-            field.exists,
-            "Password field disappeared after typing"
-        )
+        // Diagnostic check for secure text input
+        if let value = field.value as? String,
+           !value.isEmpty,
+           value != field.placeholderValue {
+
+            XCTAssertEqual(
+                value.count,
+                password.count,
+                "Password length mismatch after typing"
+            )
+        }
     }
 
-    
+    // MARK: - Onboarding
 
     func openLogin() {
         tap(page.onboardingLoginButton)
@@ -113,7 +134,7 @@ final class EasyBankSteps {
         tap(page.onboardingRegisterButton)
     }
 
-   
+    // MARK: - Login
 
     func enterLoginEmail(_ email: String) {
         enterText(email, into: page.loginEmailField)
@@ -147,7 +168,7 @@ final class EasyBankSteps {
         )
     }
 
-    //   Registration
+    // MARK: - Registration
 
     func enterRegistrationEmail(_ email: String) {
         enterText(email, into: page.registrationEmailField)
@@ -193,7 +214,7 @@ final class EasyBankSteps {
         }
     }
 
-    //  Home
+    // MARK: - Home
 
     func assertHomeDisplayed() {
         let sendMoney = page.sendMoneyButton
@@ -209,7 +230,7 @@ final class EasyBankSteps {
         )
     }
 
-    // Logout
+    // MARK: - Logout
 
     func logout() {
         tap(page.logoutButton)
@@ -221,6 +242,8 @@ final class EasyBankSteps {
 
         tap(page.confirmLogoutButton)
     }
+
+    // MARK: - Login Screen Verification
 
     func assertLoginDisplayed() {
         XCTAssertTrue(
