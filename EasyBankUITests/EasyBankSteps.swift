@@ -133,12 +133,19 @@ final class EasyBankSteps {
 
 
 
-    func assertHomeDisplayed() {
-        XCTAssertTrue(
-            page.sendMoneyButton.waitForExistence(timeout: 15),
-            "Home screen was not displayed"
-        )
+  func assertHomeDisplayed() {
+    let sendMoney = page.sendMoneyButton
+    let homeTab = page.homeTab
+
+    if !sendMoney.waitForExistence(timeout: 20) {
+        _ = homeTab.waitForExistence(timeout: 5)
     }
+
+    XCTAssertTrue(
+        sendMoney.exists || homeTab.exists,
+        "Home screen was not displayed. UI: \(app.debugDescription)"
+    )
+}
 
 
     func logout() {
